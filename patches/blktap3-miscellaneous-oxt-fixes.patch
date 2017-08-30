@@ -1,0 +1,79 @@
+Index: blktap3/vhd/lib/vhd-util-read.c
+===================================================================
+--- blktap3.orig/vhd/lib/vhd-util-read.c
++++ blktap3/vhd/lib/vhd-util-read.c
+@@ -216,6 +216,7 @@ vhd_print_parent(vhd_context_t *vhd, vhd
+ 	}
+ 
+ 	printf("       decoded name : %s\n", buf);
++	free(buf);
+ }
+ 
+ static void
+@@ -524,8 +525,10 @@ vhd_test_bitmap(vhd_context_t *vhd, uint
+ 
+ 		if (vhd->bat.bat[blk] == DD_BLK_UNUSED)
+ 			bit = 0;
+-		else
++		else {
++			/* Switch to sector, seems more in line with what -i does */
+ 			bit = vhd_bitmap_test(vhd, buf, sec);
++		}
+ 
+ 		printf("block %s: ", conv(hex, blk));
+ 		printf("sec: %s: %d\n", conv(hex, sec), bit);
+@@ -639,8 +642,8 @@ vhd_test_batmap(vhd_context_t *vhd, uint
+ 
+ 	for (i = 0; i < count; i++) {
+ 		cur = block + i;
+-		fprintf(stderr, "batmap for block %s: %d\n", conv(hex, cur),
+-			vhd_batmap_test(vhd, &vhd->batmap, cur));
++		printf("batmap for block %s: %d\n", conv(hex, cur),
++		       vhd_batmap_test(vhd, &vhd->batmap, cur));
+ 	}
+ 
+ 	return 0;
+Index: blktap3/vhd/lib/libvhd.c
+===================================================================
+--- blktap3.orig/vhd/lib/libvhd.c
++++ blktap3/vhd/lib/libvhd.c
+@@ -1313,7 +1313,7 @@ vhd_find_parent(vhd_context_t *ctx, cons
+ 	location   = NULL;
+ 	*_location = NULL;
+ 
+-	if (!parent)
++	if (!parent || !strcmp(parent, ""))
+ 		return -EINVAL;
+ 
+ 	if (parent[0] == '/') {
+@@ -1841,7 +1841,7 @@ vhd_footer_offset_at_eof(vhd_context_t *
+ {
+ 	int err;
+ 	if ((err = vhd_seek(ctx, 0, SEEK_END)))
+-		return errno;
++		return err;
+ 	*off = vhd_position(ctx) - sizeof(vhd_footer_t);
+ 	return 0;
+ }
+Index: blktap3/control/tap-ctl-ipc.c
+===================================================================
+--- blktap3.orig/control/tap-ctl-ipc.c
++++ blktap3/control/tap-ctl-ipc.c
+@@ -64,7 +64,7 @@ tap_ctl_read_raw(int fd, void *buf, size
+ 		if (ret == -1)
+ 			break;
+ 		else if (FD_ISSET(fd, &readfds)) {
+-			ret = read(fd, buf + offset, size - offset);
++			ret = read(fd, (char*)buf + offset, size - offset);
+ 			if (ret <= 0)
+ 				break;
+ 			offset += ret;
+@@ -120,7 +120,7 @@ tap_ctl_write_message(int fd, tapdisk_me
+ 		if (ret == -1)
+ 			break;
+ 		else if (FD_ISSET(fd, &writefds)) {
+-			ret = write(fd, message + offset, len - offset);
++			ret = write(fd, (char*)message + offset, len - offset);
+ 			if (ret <= 0)
+ 				break;
+ 			offset += ret;
