@@ -11,7 +11,8 @@ Index: blktap3/control/tap-ctl-list.c
 +tap_ctl_find_pid(int minor)
 +{
 +	int pid, err;
-+	tap_list_t **list, **_entry;
++	struct list_head list = LIST_HEAD_INIT(list);
++	tap_list_t *entry;
 +
 +	err = tap_ctl_list(&list);
 +	if (err)
@@ -19,8 +20,7 @@ Index: blktap3/control/tap-ctl-list.c
 +
 +	pid = -1;
 +
-+	for (_entry = list; *_entry != NULL; ++_entry) {
-+		tap_list_t *entry  = *_entry;
++	tap_list_for_each_entry(entry, &list) {
 +
 +		if (entry->minor == minor) {
 +			pid = entry->pid;
@@ -28,7 +28,7 @@ Index: blktap3/control/tap-ctl-list.c
 +		}
 +	}
 +
-+	tap_ctl_free_list(list);
++	tap_ctl_list_free(&list);
 +
 +	return pid >= 0 ? pid : -ENOENT;
 +}
